@@ -1,48 +1,47 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue, push, remove, serverTimestamp }
+import { getDatabase, ref, onValue, push, remove, set, get }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-// ─── FIREBASE AYARLARI ────────────────────────────────────────────
-// firebase.js dosyasındaki config'i buraya yapıştır
-// ya da firebase.js dosyasını doldur
 import { firebaseConfig } from "./firebase-config.js";
-// ──────────────────────────────────────────────────────────────────
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// ─── STATE ────────────────────────────────────────────────────────
 let currentUser = localStorage.getItem("takvim_user") || null;
 let viewYear, viewMonth, selectedDate;
 let allNotes = {};
+let allEvents = {};
+let counterInterval = null;
 
 const now = new Date();
 const months = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran",
                  "Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 
-// ─── INIT ─────────────────────────────────────────────────────────
 viewYear = now.getFullYear();
 viewMonth = now.getMonth();
 
-// Firebase'den notları dinle (gerçek zamanlı)
 const notesRef = ref(db, "notes");
 onValue(notesRef, (snapshot) => {
   allNotes = snapshot.val() || {};
   renderCalendar();
-  // Modal açıksa güncelle
   if (!document.getElementById("modal-overlay").classList.contains("hidden")) {
     renderModalNotes();
   }
 });
 
-// Kullanıcı daha önce seçildiyse direkt takvime git
+const eventsRef = ref(db, "events");
+onValue(eventsRef, (snapshot) => {
+  allEvents = snapshot.val() || {};
+  renderCalendar();
+  updateCounter();
+});
+
 if (currentUser) {
   showCalendar();
 } else {
   document.getElementById("user-screen").classList.remove("hidden");
 }
 
-// ─── KULLANICI SEÇİMİ ─────────────────────────────────────────────
 window.selectUser = function(u) {
   currentUser = u;
   localStorage.setItem("takvim_user", u);
@@ -66,18 +65,14 @@ function updateBadge() {
   if (currentUser === "sude") {
     badge.textContent = "♥ Sude";
     badge.className = "active-user-badge badge-sude";
-    document.querySelector(".note-textarea").style.borderColor = "";
   } else {
     badge.textContent = "♥ Bigi";
     badge.className = "active-user-badge badge-bigi";
   }
   const sendBtn = document.getElementById("send-btn");
-  if (sendBtn) {
-    sendBtn.className = "send-btn send-" + currentUser;
-  }
+  if (sendBtn) sendBtn.className = "send-btn send-" + currentUser;
 }
 
-// ─── TAKVİM RENDER ────────────────────────────────────────────────
 window.changeMonth = function(dir) {
   viewMonth += dir;
   if (viewMonth > 11) { viewMonth = 0; viewYear++; }
@@ -86,9 +81,7 @@ window.changeMonth = function(dir) {
 };
 
 function renderCalendar() {
-  document.getElementById("month-title").textContent =
-    months[viewMonth] + " " + viewYear;
-
+  document.getElementById("month-title").textContent = months[viewMonth] + " " + viewYear;
   const grid = document.getElementById("cal-grid");
   grid.innerHTML = "";
 
@@ -105,15 +98,18 @@ function renderCalendar() {
   for (let d = 1; d <= total; d++) {
     const key      = dateKey(viewYear, viewMonth, d);
     const dayNotes = getNotesForKey(key);
-    const isToday  = d === now.getDate() &&
-                     viewMonth === now.getMonth() &&
-                     viewYear  === now.getFullYear();
+    const eventType = allEvents[key] || null;
+    const isToday  = d === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
     const isHeart  = d === 5;
 
     const el = document.createElement("div");
-    el.className = "cal-day" +
-      (isToday ? " today" : "") +
-      (isHeart ? " heart-day" : "");
+    let cls = "cal-day";
+    if (isToday && !eventType) cls += " today";
+    if (isHeart) cls += " heart-day";
+    if (eventType === "sinav") cls += " ev-sinav-day";
+    if (eventType === "ayrilik") cls += " ev-ayrilik-day";
+    if (eventType === "kavustay") cls += " ev-kavustay-day";
+    el.className = cls;
     el.onclick = () => openModal(d);
 
     const numEl = document.createElement("div");
@@ -121,27 +117,33 @@ function renderCalendar() {
     numEl.textContent = d;
     el.appendChild(numEl);
 
-    if (isHeart) {
+    if (isHeart && eventType !== "sinav" && eventType !== "ayrilik") {
       const h = document.createElement("div");
       h.className = "heart-corner";
       h.textContent = "♥";
       el.appendChild(h);
     }
 
+    if (eventType === "kavustay") {
+      const em = document.createElement("div");
+      em.className = "kavustay-emojis";
+      em.textContent = "💜💙🩵💚💛🧡❤️🩷";
+      el.appendChild(em);
+    }
+
     if (dayNotes.length > 0) {
       const list = document.createElement("div");
       list.className = "day-notes-list";
-      const show = dayNotes.slice(0, 2);
-      show.forEach(n => {
+      dayNotes.slice(0, 1).forEach(n => {
         const chip = document.createElement("div");
         chip.className = "day-note-chip chip-" + n.user;
         chip.textContent = n.text;
         list.appendChild(chip);
       });
-      if (dayNotes.length > 2) {
+      if (dayNotes.length > 1) {
         const more = document.createElement("div");
         more.className = "day-note-chip chip-more";
-        more.textContent = "+" + (dayNotes.length - 2) + " daha";
+        more.textContent = "+" + (dayNotes.length - 1) + " daha";
         list.appendChild(more);
       }
       el.appendChild(list);
@@ -151,7 +153,77 @@ function renderCalendar() {
   }
 }
 
-// ─── MODAL ────────────────────────────────────────────────────────
+window.setDayEvent = async function(type) {
+  if (!selectedDate) return;
+  const key = dateKey(viewYear, viewMonth, selectedDate);
+  const current = allEvents[key];
+
+  const newType = current === type ? null : type;
+
+  try {
+    if (newType === null) {
+      await set(ref(db, "events/" + key), null);
+      showToast("Etkinlik kaldırıldı");
+    } else {
+      await set(ref(db, "events/" + key), type);
+
+      if (type === "ayrilik") {
+      
+        await set(ref(db, "counter/start"), { year: viewYear, month: viewMonth, day: selectedDate });
+        await set(ref(db, "counter/end"), null);
+        showToast("Ayrılık günü işaretlendi 💔");
+      } else if (type === "kavustay") {
+        
+        await set(ref(db, "counter/end"), { year: viewYear, month: viewMonth, day: selectedDate });
+        showToast("Kavuştay günü işaretlendi 💜💙");
+      } else if (type === "sinav") {
+        showToast("Sınav günü işaretlendi 📚");
+      }
+    }
+  } catch(err) {
+    showToast("Hata: " + err.message);
+  }
+};
+
+
+let counterData = { start: null, end: null };
+
+const counterRef = ref(db, "counter");
+onValue(counterRef, (snapshot) => {
+  counterData = snapshot.val() || { start: null, end: null };
+  updateCounter();
+});
+
+function updateCounter() {
+  const bar = document.getElementById("counter-bar");
+  const valEl = document.getElementById("counter-value");
+
+  if (!counterData.start) {
+    bar.classList.add("hidden");
+    return;
+  }
+
+  bar.classList.remove("hidden");
+
+  const startDate = new Date(counterData.start.year, counterData.start.month, counterData.start.day);
+
+  if (counterData.end) {
+   
+    const endDate = new Date(counterData.end.year, counterData.end.month, counterData.end.day);
+    const days = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
+    valEl.textContent = days + " gün 💜";
+    bar.style.background = "linear-gradient(90deg, #641349, #00a693)";
+  } else {
+   
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const days = Math.round((today - startDate) / (1000 * 60 * 60 * 24));
+    valEl.textContent = days + " gün";
+    bar.style.background = "#1a1a1a";
+  }
+}
+
+
 window.openModal = function(day) {
   selectedDate = day;
   const isHeart = day === 5;
@@ -159,10 +231,7 @@ window.openModal = function(day) {
     (isHeart ? "♥ " : "") + day + " " + months[viewMonth] + " " + viewYear;
 
   renderModalNotes();
-
-  const overlay = document.getElementById("modal-overlay");
-  overlay.classList.remove("hidden");
-
+  document.getElementById("modal-overlay").classList.remove("hidden");
   const ta = document.getElementById("note-input");
   ta.value = "";
   setTimeout(() => ta.focus(), 300);
@@ -226,7 +295,7 @@ window.closeModalOnBg = function(e) {
   if (e.target === document.getElementById("modal-overlay")) closeModal();
 };
 
-// ─── NOT KAYDET ───────────────────────────────────────────────────
+
 window.saveNote = async function() {
   if (!currentUser) { showToast("Önce kim olduğunu seç!"); return; }
   const ta   = document.getElementById("note-input");
@@ -247,7 +316,7 @@ window.saveNote = async function() {
   }
 };
 
-// ─── NOT SİL ──────────────────────────────────────────────────────
+
 window.deleteNote = async function(fbKey) {
   const key = dateKey(viewYear, viewMonth, selectedDate);
   try {
@@ -257,7 +326,7 @@ window.deleteNote = async function(fbKey) {
   }
 };
 
-// ─── YARDIMCI ─────────────────────────────────────────────────────
+
 function dateKey(y, m, d) {
   return y + "-" + m + "-" + d;
 }
@@ -278,7 +347,6 @@ function showToast(msg) {
   setTimeout(() => { t.classList.add("hidden"); }, 2600);
 }
 
-// Enter ile gönder (Shift+Enter yeni satır)
 document.getElementById("note-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
