@@ -1,14 +1,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, onValue, push, remove, set }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getStorage, ref as sref, uploadBytes, getDownloadURL, deleteObject }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 import { firebaseConfig } from "./firebase-config.js";
 
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
-const storage = getStorage(app);
 
 
 let currentUser = localStorage.getItem("takvim_user") || null;
@@ -17,6 +14,7 @@ let allNotes  = {};
 let allEvents = {};
 let allPhotos = {};
 let counterData = { start: null, end: null };
+let counterTimer = null;
 
 const now = new Date();
 const months = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran",
@@ -74,8 +72,8 @@ function showCalendar() {
 
 function updateBadge() {
   const badge = document.getElementById("active-badge");
-  badge.textContent  = currentUser === "sude" ? "♥ Sude" : "♥ Bigi";
-  badge.className    = "active-user-badge badge-" + currentUser;
+  badge.textContent = currentUser === "sude" ? "♥ Sude" : "♥ Bigi";
+  badge.className   = "active-user-badge badge-" + currentUser;
   const sendBtn = document.getElementById("send-btn");
   if (sendBtn) sendBtn.className = "send-btn send-" + currentUser;
 }
@@ -140,7 +138,6 @@ function renderCalendar() {
       el.appendChild(em);
     }
 
-   
     if (dayPhotos.length > 0) {
       const pi = document.createElement("div");
       pi.className = "photo-indicator";
@@ -180,7 +177,6 @@ window.setDayEvent = async function(type) {
   try {
     if (newType === null) {
       await set(ref(db, "events/" + key), null);
-     
       if (current === "ayrilik") {
         await set(ref(db, "counter/start"), null);
         await set(ref(db, "counter/end"), null);
@@ -188,13 +184,37 @@ window.setDayEvent = async function(type) {
       showToast("Etkinlik kaldırıldı");
     } else {
       await set(ref(db, "events/" + key), newType);
+
       if (newType === "ayrilik") {
-        await set(ref(db, "counter/start"), { year: viewYear, month: viewMonth, day: selectedDate, timestamp: Date.now() });
+        
+        const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
+        const selectedMidnight = new Date(viewYear, viewMonth, selectedDate);
+        const isToday = selectedMidnight.getTime() === todayMidnight.getTime();
+
+        await set(ref(db, "counter/start"), {
+          year: viewYear, month: viewMonth, day: selectedDate,
+          timestamp: isToday ? Date.now() : selectedMidnight.getTime(),
+          exactTime: isToday
+        });
         await set(ref(db, "counter/end"), null);
-        showToast("Ayrılık günü işaretlendi 💔");
+        showToast("Elveda Sevgilim 💔");
+
       } else if (newType === "kavustay") {
-        await set(ref(db, "counter/end"), { year: viewYear, month: viewMonth, day: selectedDate, timestamp: Date.now() });
+        
+        const summary = getCurrentCounterSummary();
+        const noteKey = dateKey(viewYear, viewMonth, selectedDate);
+        if (summary) {
+          await push(ref(db, "notes/" + noteKey), {
+            user: currentUser || "sude",
+            text: summary,
+            createdAt: Date.now()
+          });
+        }
+        await set(ref(db, "counter/end"), { timestamp: Date.now() });
+
+        
         document.getElementById("kavustay-alert").classList.remove("hidden");
+
       } else if (newType === "sinav") {
         showToast("Sınav günü işaretlendi 📚");
       }
@@ -202,8 +222,21 @@ window.setDayEvent = async function(type) {
   } catch(err) { showToast("Hata: " + err.message); }
 };
 
+function getCurrentCounterSummary() {
+  if (!counterData.start) return null;
+  const startTs = counterData.start.timestamp;
+  const diff    = Date.now() - startTs;
+  const totalSec = Math.floor(diff / 1000);
+  const days  = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const mins  = Math.floor((totalSec % 3600) / 60);
+  if (counterData.start.exactTime) {
+    return days + " gün " + hours + " saat " + mins + " dakika ayrı kaldınız 💔";
+  } else {
+    return days + " gün ayrı kaldınız 💔";
+  }
+}
 
-let counterTimer = null;
 
 function updateCounter() {
   const bar   = document.getElementById("counter-bar");
@@ -218,31 +251,56 @@ function updateCounter() {
 
   bar.classList.remove("hidden");
 
+
   if (counterData.end) {
     if (counterTimer) { clearInterval(counterTimer); counterTimer = null; }
-    const startTs = counterData.start.timestamp;
-    const endTs   = counterData.end.timestamp;
-    const diff    = endTs - startTs;
-    valEl.textContent = formatDiff(diff) + " 💜";
+    const diff = counterData.end.timestamp - counterData.start.timestamp;
+    const totalSec = Math.floor(diff / 1000);
+    const days  = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const mins  = Math.floor((totalSec % 3600) / 60);
+    if (counterData.start.exactTime) {
+      valEl.textContent = days + " gün " + hours + " saat " + mins + " dakika ayrı kaldınız 💜";
+    } else {
+      valEl.textContent = days + " gün ayrı kaldınız 💜";
+    }
     bar.style.background = "linear-gradient(90deg, #641349, #00a693)";
-  } else {
-    if (counterTimer) clearInterval(counterTimer);
-    counterTimer = setInterval(() => {
-      const diff = Date.now() - counterData.start.timestamp;
-      valEl.textContent = formatDiff(diff);
-      bar.style.background = "#1a1a1a";
-    }, 1000);
+    return;
   }
+
+
+  if (counterTimer) clearInterval(counterTimer);
+
+  function tick() {
+    const diff = Date.now() - counterData.start.timestamp;
+    const totalSec = Math.floor(diff / 1000);
+    const days  = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const mins  = Math.floor((totalSec % 3600) / 60);
+    const secs  = totalSec % 60;
+
+    if (counterData.start.exactTime) {
+      valEl.textContent = days + " gün " + pad(hours) + ":" + pad(mins) + ":" + pad(secs) + " dir birbirinizi özlüyorsunuz";
+    } else {
+     
+      const startMidnight = new Date(counterData.start.year, counterData.start.month, counterData.start.day);
+      const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
+      const diffDays = Math.round((todayMidnight - startMidnight) / (1000 * 60 * 60 * 24));
+      valEl.textContent = diffDays + " gündür birbirinizi özlüyorsunuz";
+    }
+    bar.style.background = "#1a1a1a";
+  }
+
+  tick();
+  counterTimer = setInterval(tick, 1000);
 }
 
-function formatDiff(ms) {
-  const totalSec = Math.floor(ms / 1000);
-  const days  = Math.floor(totalSec / 86400);
-  const hours = Math.floor((totalSec % 86400) / 3600);
-  const mins  = Math.floor((totalSec % 3600) / 60);
-  const secs  = totalSec % 60;
-  return days + "g " + String(hours).padStart(2,"0") + ":" + String(mins).padStart(2,"0") + ":" + String(secs).padStart(2,"0");
-}
+function pad(n) { return String(n).padStart(2, "0"); }
+
+
+window.closeKavustayAlert = function() {
+  document.getElementById("kavustay-alert").classList.add("hidden");
+};
 
 
 window.triggerPhotoUpload = function() {
@@ -251,34 +309,23 @@ window.triggerPhotoUpload = function() {
 
 document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("photo-input");
-  if (input) {
-    input.addEventListener("change", handlePhotoUpload);
-  }
+  if (input) input.addEventListener("change", handlePhotoUpload);
 });
 
 async function handlePhotoUpload(e) {
   const files = Array.from(e.target.files);
   if (!files.length) return;
   if (!currentUser) { showToast("Önce kim olduğunu seç!"); return; }
-
   showToast("Yükleniyor...");
-
   for (const file of files) {
     try {
-    
       const base64 = await resizeAndConvert(file);
       const key = dateKey(viewYear, viewMonth, selectedDate);
       await push(ref(db, "photos/" + key), {
-        user: currentUser,
-        data: base64,
-        name: file.name,
-        createdAt: Date.now()
+        user: currentUser, data: base64, name: file.name, createdAt: Date.now()
       });
-    } catch(err) {
-      showToast("Hata: " + err.message);
-    }
+    } catch(err) { showToast("Hata: " + err.message); }
   }
-
   e.target.value = "";
   showToast("Fotoğraf eklendi ✓");
 }
@@ -322,7 +369,6 @@ window.openModal = function(day) {
   const isHeart = day === 5;
   document.getElementById("modal-date").textContent =
     (isHeart ? "♥ " : "") + day + " " + months[viewMonth] + " " + viewYear;
-
   renderModalNotes();
   renderModalPhotos();
   document.getElementById("modal-overlay").classList.remove("hidden");
@@ -415,11 +461,9 @@ function renderModalPhotos() {
   });
 }
 
-
 window.openPhotoViewer = function(src) {
-  const viewer = document.getElementById("photo-viewer");
   document.getElementById("photo-viewer-img").src = src;
-  viewer.classList.remove("hidden");
+  document.getElementById("photo-viewer").classList.remove("hidden");
 };
 
 window.closePhotoViewer = function() {
