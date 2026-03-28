@@ -1,46 +1,58 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue, push, remove, set, get }
+import { getDatabase, ref, onValue, push, remove, set }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getStorage, ref as sref, uploadBytes, getDownloadURL, deleteObject }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 import { firebaseConfig } from "./firebase-config.js";
 
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+const db  = getDatabase(app);
+const storage = getStorage(app);
+
 
 let currentUser = localStorage.getItem("takvim_user") || null;
 let viewYear, viewMonth, selectedDate;
-let allNotes = {};
+let allNotes  = {};
 let allEvents = {};
-let counterInterval = null;
+let allPhotos = {};
+let counterData = { start: null, end: null };
 
 const now = new Date();
 const months = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran",
                  "Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 
-viewYear = now.getFullYear();
+viewYear  = now.getFullYear();
 viewMonth = now.getMonth();
 
-const notesRef = ref(db, "notes");
-onValue(notesRef, (snapshot) => {
-  allNotes = snapshot.val() || {};
+
+onValue(ref(db, "notes"), snap => {
+  allNotes = snap.val() || {};
   renderCalendar();
-  if (!document.getElementById("modal-overlay").classList.contains("hidden")) {
-    renderModalNotes();
-  }
+  if (isModalOpen()) renderModalNotes();
 });
 
-const eventsRef = ref(db, "events");
-onValue(eventsRef, (snapshot) => {
-  allEvents = snapshot.val() || {};
+onValue(ref(db, "events"), snap => {
+  allEvents = snap.val() || {};
   renderCalendar();
   updateCounter();
 });
 
-if (currentUser) {
-  showCalendar();
-} else {
-  document.getElementById("user-screen").classList.remove("hidden");
-}
+onValue(ref(db, "photos"), snap => {
+  allPhotos = snap.val() || {};
+  renderCalendar();
+  if (isModalOpen()) renderModalPhotos();
+});
+
+onValue(ref(db, "counter"), snap => {
+  counterData = snap.val() || { start: null, end: null };
+  updateCounter();
+});
+
+
+if (currentUser) showCalendar();
+else document.getElementById("user-screen").classList.remove("hidden");
+
 
 window.selectUser = function(u) {
   currentUser = u;
@@ -62,16 +74,12 @@ function showCalendar() {
 
 function updateBadge() {
   const badge = document.getElementById("active-badge");
-  if (currentUser === "sude") {
-    badge.textContent = "♥ Sude";
-    badge.className = "active-user-badge badge-sude";
-  } else {
-    badge.textContent = "♥ Bigi";
-    badge.className = "active-user-badge badge-bigi";
-  }
+  badge.textContent  = currentUser === "sude" ? "♥ Sude" : "♥ Bigi";
+  badge.className    = "active-user-badge badge-" + currentUser;
   const sendBtn = document.getElementById("send-btn");
   if (sendBtn) sendBtn.className = "send-btn send-" + currentUser;
 }
+
 
 window.changeMonth = function(dir) {
   viewMonth += dir;
@@ -96,18 +104,19 @@ function renderCalendar() {
   }
 
   for (let d = 1; d <= total; d++) {
-    const key      = dateKey(viewYear, viewMonth, d);
-    const dayNotes = getNotesForKey(key);
+    const key       = dateKey(viewYear, viewMonth, d);
+    const dayNotes  = getNotesForKey(key);
     const eventType = allEvents[key] || null;
-    const isToday  = d === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
-    const isHeart  = d === 5;
+    const dayPhotos = getPhotosForKey(key);
+    const isToday   = d === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
+    const isHeart   = d === 5;
 
     const el = document.createElement("div");
     let cls = "cal-day";
     if (isToday && !eventType) cls += " today";
     if (isHeart) cls += " heart-day";
-    if (eventType === "sinav") cls += " ev-sinav-day";
-    if (eventType === "ayrilik") cls += " ev-ayrilik-day";
+    if (eventType === "sinav")    cls += " ev-sinav-day";
+    if (eventType === "ayrilik")  cls += " ev-ayrilik-day";
     if (eventType === "kavustay") cls += " ev-kavustay-day";
     el.className = cls;
     el.onclick = () => openModal(d);
@@ -127,8 +136,16 @@ function renderCalendar() {
     if (eventType === "kavustay") {
       const em = document.createElement("div");
       em.className = "kavustay-emojis";
-      em.textContent = "💜💙🩵💚💛🧡❤️🩷";
+      em.textContent = "💚💙💛💜🧡❤️";
       el.appendChild(em);
+    }
+
+   
+    if (dayPhotos.length > 0) {
+      const pi = document.createElement("div");
+      pi.className = "photo-indicator";
+      pi.textContent = "📷" + (dayPhotos.length > 1 ? " " + dayPhotos.length : "");
+      el.appendChild(pi);
     }
 
     if (dayNotes.length > 0) {
@@ -143,7 +160,7 @@ function renderCalendar() {
       if (dayNotes.length > 1) {
         const more = document.createElement("div");
         more.className = "day-note-chip chip-more";
-        more.textContent = "+" + (dayNotes.length - 1) + " daha";
+        more.textContent = "+" + (dayNotes.length - 1);
         list.appendChild(more);
       }
       el.appendChild(list);
@@ -153,75 +170,137 @@ function renderCalendar() {
   }
 }
 
+
 window.setDayEvent = async function(type) {
   if (!selectedDate) return;
-  const key = dateKey(viewYear, viewMonth, selectedDate);
+  const key     = dateKey(viewYear, viewMonth, selectedDate);
   const current = allEvents[key];
-
   const newType = current === type ? null : type;
 
   try {
     if (newType === null) {
       await set(ref(db, "events/" + key), null);
+     
+      if (current === "ayrilik") {
+        await set(ref(db, "counter/start"), null);
+        await set(ref(db, "counter/end"), null);
+      }
       showToast("Etkinlik kaldırıldı");
     } else {
-      await set(ref(db, "events/" + key), type);
-
-      if (type === "ayrilik") {
-      
+      await set(ref(db, "events/" + key), newType);
+      if (newType === "ayrilik") {
         await set(ref(db, "counter/start"), { year: viewYear, month: viewMonth, day: selectedDate });
         await set(ref(db, "counter/end"), null);
         showToast("Ayrılık günü işaretlendi 💔");
-      } else if (type === "kavustay") {
-        
+      } else if (newType === "kavustay") {
         await set(ref(db, "counter/end"), { year: viewYear, month: viewMonth, day: selectedDate });
         showToast("Kavuştay günü işaretlendi 💜💙");
-      } else if (type === "sinav") {
+      } else if (newType === "sinav") {
         showToast("Sınav günü işaretlendi 📚");
       }
     }
-  } catch(err) {
-    showToast("Hata: " + err.message);
-  }
+  } catch(err) { showToast("Hata: " + err.message); }
 };
 
 
-let counterData = { start: null, end: null };
-
-const counterRef = ref(db, "counter");
-onValue(counterRef, (snapshot) => {
-  counterData = snapshot.val() || { start: null, end: null };
-  updateCounter();
-});
-
 function updateCounter() {
-  const bar = document.getElementById("counter-bar");
+  const bar   = document.getElementById("counter-bar");
   const valEl = document.getElementById("counter-value");
 
-  if (!counterData.start) {
+
+  const hasAyrilik = Object.values(allEvents).includes("ayrilik");
+  if (!hasAyrilik || !counterData.start) {
     bar.classList.add("hidden");
     return;
   }
 
   bar.classList.remove("hidden");
-
   const startDate = new Date(counterData.start.year, counterData.start.month, counterData.start.day);
 
   if (counterData.end) {
-   
     const endDate = new Date(counterData.end.year, counterData.end.month, counterData.end.day);
     const days = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
     valEl.textContent = days + " gün 💜";
     bar.style.background = "linear-gradient(90deg, #641349, #00a693)";
   } else {
-   
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const days = Math.round((today - startDate) / (1000 * 60 * 60 * 24));
+    const today = new Date(); today.setHours(0,0,0,0);
+    const days  = Math.round((today - startDate) / (1000 * 60 * 60 * 24));
     valEl.textContent = days + " gün";
     bar.style.background = "#1a1a1a";
   }
 }
+
+
+window.triggerPhotoUpload = function() {
+  document.getElementById("photo-input").click();
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("photo-input");
+  if (input) {
+    input.addEventListener("change", handlePhotoUpload);
+  }
+});
+
+async function handlePhotoUpload(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  if (!currentUser) { showToast("Önce kim olduğunu seç!"); return; }
+
+  showToast("Yükleniyor...");
+
+  for (const file of files) {
+    try {
+    
+      const base64 = await resizeAndConvert(file);
+      const key = dateKey(viewYear, viewMonth, selectedDate);
+      await push(ref(db, "photos/" + key), {
+        user: currentUser,
+        data: base64,
+        name: file.name,
+        createdAt: Date.now()
+      });
+    } catch(err) {
+      showToast("Hata: " + err.message);
+    }
+  }
+
+  e.target.value = "";
+  showToast("Fotoğraf eklendi ✓");
+}
+
+function resizeAndConvert(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX = 1200;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else       { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.75));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+window.deletePhoto = async function(fbKey) {
+  const key = dateKey(viewYear, viewMonth, selectedDate);
+  try {
+    await remove(ref(db, "photos/" + key + "/" + fbKey));
+    showToast("Fotoğraf silindi");
+  } catch(err) { showToast("Silinemedi"); }
+};
 
 
 window.openModal = function(day) {
@@ -231,11 +310,14 @@ window.openModal = function(day) {
     (isHeart ? "♥ " : "") + day + " " + months[viewMonth] + " " + viewYear;
 
   renderModalNotes();
+  renderModalPhotos();
   document.getElementById("modal-overlay").classList.remove("hidden");
-  const ta = document.getElementById("note-input");
-  ta.value = "";
-  setTimeout(() => ta.focus(), 300);
+  document.getElementById("note-input").value = "";
 };
+
+function isModalOpen() {
+  return !document.getElementById("modal-overlay").classList.contains("hidden");
+}
 
 function renderModalNotes() {
   const key      = dateKey(viewYear, viewMonth, selectedDate);
@@ -265,7 +347,7 @@ function renderModalNotes() {
 
     const time = document.createElement("div");
     time.className = "note-time";
-    time.textContent = n.user === "sude" ? "Sude" : "Bigi";
+    time.textContent = (n.user === "sude" ? "Sude" : "Bigi");
     if (n.createdAt) {
       const d = new Date(n.createdAt);
       time.textContent += " · " + d.toLocaleDateString("tr-TR", { day:"numeric", month:"short" })
@@ -287,6 +369,49 @@ function renderModalNotes() {
   });
 }
 
+function renderModalPhotos() {
+  const key       = dateKey(viewYear, viewMonth, selectedDate);
+  const dayPhotos = getPhotosForKey(key);
+  const container = document.getElementById("modal-photos");
+  container.innerHTML = "";
+  if (dayPhotos.length === 0) return;
+
+  dayPhotos.forEach(p => {
+    const wrap = document.createElement("div");
+    wrap.className = "photo-thumb-wrap";
+
+    const img = document.createElement("img");
+    img.className = "photo-thumb";
+    img.src = p.data;
+    img.onclick = () => openPhotoViewer(p.data);
+
+    const del = document.createElement("button");
+    del.className = "photo-del";
+    del.textContent = "×";
+    del.onclick = (e) => { e.stopPropagation(); deletePhoto(p.firebaseKey); };
+
+    const who = document.createElement("div");
+    who.className = "photo-who photo-who-" + p.user;
+    who.textContent = p.user === "sude" ? "S" : "B";
+
+    wrap.appendChild(img);
+    wrap.appendChild(del);
+    wrap.appendChild(who);
+    container.appendChild(wrap);
+  });
+}
+
+// Fotoğraf tam ekran görüntüleyici
+window.openPhotoViewer = function(src) {
+  const viewer = document.getElementById("photo-viewer");
+  document.getElementById("photo-viewer-img").src = src;
+  viewer.classList.remove("hidden");
+};
+
+window.closePhotoViewer = function() {
+  document.getElementById("photo-viewer").classList.add("hidden");
+};
+
 window.closeModal = function() {
   document.getElementById("modal-overlay").classList.add("hidden");
 };
@@ -301,40 +426,34 @@ window.saveNote = async function() {
   const ta   = document.getElementById("note-input");
   const text = ta.value.trim();
   if (!text) return;
-
   const key = dateKey(viewYear, viewMonth, selectedDate);
   try {
-    await push(ref(db, "notes/" + key), {
-      user: currentUser,
-      text: text,
-      createdAt: Date.now()
-    });
+    await push(ref(db, "notes/" + key), { user: currentUser, text, createdAt: Date.now() });
     ta.value = "";
     showToast("Kaydedildi ✓");
-  } catch (err) {
-    showToast("Hata: " + err.message);
-  }
+  } catch(err) { showToast("Hata: " + err.message); }
 };
-
 
 window.deleteNote = async function(fbKey) {
   const key = dateKey(viewYear, viewMonth, selectedDate);
-  try {
-    await remove(ref(db, "notes/" + key + "/" + fbKey));
-  } catch (err) {
-    showToast("Silinemedi: " + err.message);
-  }
+  try { await remove(ref(db, "notes/" + key + "/" + fbKey)); }
+  catch(err) { showToast("Silinemedi"); }
 };
 
 
-function dateKey(y, m, d) {
-  return y + "-" + m + "-" + d;
-}
+function dateKey(y, m, d) { return y + "-" + m + "-" + d; }
 
 function getNotesForKey(key) {
   const raw = allNotes[key];
   if (!raw) return [];
-  return Object.entries(raw).map(([fbKey, val]) => ({ ...val, firebaseKey: fbKey }))
+  return Object.entries(raw).map(([k, v]) => ({ ...v, firebaseKey: k }))
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+
+function getPhotosForKey(key) {
+  const raw = allPhotos[key];
+  if (!raw) return [];
+  return Object.entries(raw).map(([k, v]) => ({ ...v, firebaseKey: k }))
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 }
 
@@ -343,13 +462,10 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.remove("hidden");
   t.classList.add("show");
-  setTimeout(() => { t.classList.remove("show"); }, 2200);
-  setTimeout(() => { t.classList.add("hidden"); }, 2600);
+  setTimeout(() => t.classList.remove("show"), 2200);
+  setTimeout(() => t.classList.add("hidden"), 2600);
 }
 
 document.getElementById("note-input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    saveNote();
-  }
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveNote(); }
 });
