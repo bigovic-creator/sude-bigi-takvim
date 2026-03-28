@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Bizim Takvim" />
   <link rel="apple-touch-icon" href="icon.png" />
-  <title> 2 Ruh 2 Beden 1 Hayat :)💕</title>
+  <title> 2 Beden 2 Ruh 1 Hayat💕</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
@@ -18,7 +18,7 @@
     <div class="user-screen-inner">
       <div class="logo-area">
         <div class="heart-big">♥</div>
-        <h1 class="app-title"> 2 Ruh 2 Beden 1 Hayat :)💕</h1>
+        <h1 class="app-title">2 Beden 2 Ruh 1 Hayat</h1>
         <p class="app-sub">Kim olduğunu seç</p>
       </div>
       <div class="user-cards">
@@ -62,6 +62,9 @@
         <div class="legend-item"><span class="ldot sude-dot"></span>Sude</div>
         <div class="legend-item"><span class="ldot bigi-dot"></span>Bigi</div>
         <div class="legend-item"><span class="heart-legend">♥</span></div>
+        <div class="legend-item"><span class="ldot" style="background:#e53935"></span>Sınav</div>
+        <div class="legend-item"><span class="ldot" style="background:#222"></span>Ayrılık</div>
+        <div class="legend-item"><span class="ldot" style="background:linear-gradient(90deg,#641349,#00a693)"></span>Kavuştay</div>
       </div>
     </div>
   </div>
@@ -72,12 +75,23 @@
         <h3 class="modal-date" id="modal-date"></h3>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
+      <div class="event-btns">
+        <button class="ev-btn ev-sinav" onclick="setDayEvent('sinav')">SINAV</button>
+        <button class="ev-btn ev-ayrilik" onclick="setDayEvent('ayrilik')">AYRILIK</button>
+        <button class="ev-btn ev-kavustay" onclick="setDayEvent('kavustay')">KAVUŞTAY</button>
+      </div>
       <div class="modal-notes" id="modal-notes"></div>
       <div class="modal-input-area">
         <textarea id="note-input" class="note-textarea" placeholder="Bir şeyler yaz..."></textarea>
         <button class="send-btn" id="send-btn" onclick="saveNote()">Gönder ↗</button>
       </div>
     </div>
+  </div>
+
+  <!-- Sayaç -->
+  <div id="counter-bar" class="counter-bar hidden">
+    <span class="counter-label">Ayrılık sayacı</span>
+    <span class="counter-value" id="counter-value">0 gün</span>
   </div>
 
   <div id="toast" class="toast hidden"></div>
