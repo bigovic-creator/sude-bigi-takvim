@@ -1,10 +1,10 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 :root {
-  --sude: #d4537e;
+  --sude: #660066;
   --sude-light: #fbeaf0;
   --sude-dark: #993556;
-  --bigi: #3a86d4;
+  --bigi: #00a693;
   --bigi-light: #e6f1fb;
   --bigi-dark: #185fa5;
   --heart: #e8325a;
