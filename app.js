@@ -194,7 +194,7 @@ window.setDayEvent = async function(type) {
         showToast("Ayrılık günü işaretlendi 💔");
       } else if (newType === "kavustay") {
         await set(ref(db, "counter/end"), { year: viewYear, month: viewMonth, day: selectedDate, timestamp: Date.now() });
-        showToast("Kavuştay günü işaretlendi 💜💙");
+        document.getElementById("kavustay-alert").classList.remove("hidden");
       } else if (newType === "sinav") {
         showToast("Sınav günü işaretlendi 📚");
       }
