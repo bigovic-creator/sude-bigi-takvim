@@ -189,11 +189,11 @@ window.setDayEvent = async function(type) {
     } else {
       await set(ref(db, "events/" + key), newType);
       if (newType === "ayrilik") {
-        await set(ref(db, "counter/start"), { year: viewYear, month: viewMonth, day: selectedDate });
+        await set(ref(db, "counter/start"), { year: viewYear, month: viewMonth, day: selectedDate, timestamp: Date.now() });
         await set(ref(db, "counter/end"), null);
         showToast("Ayrılık günü işaretlendi 💔");
       } else if (newType === "kavustay") {
-        await set(ref(db, "counter/end"), { year: viewYear, month: viewMonth, day: selectedDate });
+        await set(ref(db, "counter/end"), { year: viewYear, month: viewMonth, day: selectedDate, timestamp: Date.now() });
         showToast("Kavuştay günü işaretlendi 💜💙");
       } else if (newType === "sinav") {
         showToast("Sınav günü işaretlendi 📚");
@@ -203,31 +203,45 @@ window.setDayEvent = async function(type) {
 };
 
 
+let counterTimer = null;
+
 function updateCounter() {
   const bar   = document.getElementById("counter-bar");
   const valEl = document.getElementById("counter-value");
 
-
   const hasAyrilik = Object.values(allEvents).includes("ayrilik");
   if (!hasAyrilik || !counterData.start) {
     bar.classList.add("hidden");
+    if (counterTimer) { clearInterval(counterTimer); counterTimer = null; }
     return;
   }
 
   bar.classList.remove("hidden");
-  const startDate = new Date(counterData.start.year, counterData.start.month, counterData.start.day);
 
   if (counterData.end) {
-    const endDate = new Date(counterData.end.year, counterData.end.month, counterData.end.day);
-    const days = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
-    valEl.textContent = days + " gün 💜";
+    if (counterTimer) { clearInterval(counterTimer); counterTimer = null; }
+    const startTs = counterData.start.timestamp;
+    const endTs   = counterData.end.timestamp;
+    const diff    = endTs - startTs;
+    valEl.textContent = formatDiff(diff) + " 💜";
     bar.style.background = "linear-gradient(90deg, #641349, #00a693)";
   } else {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const days  = Math.round((today - startDate) / (1000 * 60 * 60 * 24));
-    valEl.textContent = days + " gün";
-    bar.style.background = "#1a1a1a";
+    if (counterTimer) clearInterval(counterTimer);
+    counterTimer = setInterval(() => {
+      const diff = Date.now() - counterData.start.timestamp;
+      valEl.textContent = formatDiff(diff);
+      bar.style.background = "#1a1a1a";
+    }, 1000);
   }
+}
+
+function formatDiff(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const days  = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const mins  = Math.floor((totalSec % 3600) / 60);
+  const secs  = totalSec % 60;
+  return days + "g " + String(hours).padStart(2,"0") + ":" + String(mins).padStart(2,"0") + ":" + String(secs).padStart(2,"0");
 }
 
 
@@ -401,7 +415,7 @@ function renderModalPhotos() {
   });
 }
 
-// Fotoğraf tam ekran görüntüleyici
+
 window.openPhotoViewer = function(src) {
   const viewer = document.getElementById("photo-viewer");
   document.getElementById("photo-viewer-img").src = src;
