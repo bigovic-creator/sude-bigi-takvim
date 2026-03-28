@@ -29,7 +29,7 @@ html, body {
 .screen { position: fixed; inset: 0; display: flex; flex-direction: column; overflow-y: auto; }
 .hidden { display: none !important; }
 
-/* ── USER SELECT ─────────────────────────────── */
+
 #user-screen {
   background: linear-gradient(160deg, #fff5f8 0%, #f0f4ff 100%);
   align-items: center;
@@ -136,7 +136,7 @@ html, body {
   font-weight: 300;
 }
 
-/* ── CALENDAR SCREEN ─────────────────────────── */
+
 #calendar-screen {
   background: var(--bg);
   overflow-y: auto;
@@ -218,7 +218,7 @@ html, body {
 
 .switch-btn:active { background: var(--border); }
 
-/* ── DAY LABELS ──────────────────────────────── */
+
 .day-labels {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -235,7 +235,7 @@ html, body {
   letter-spacing: 0.3px;
 }
 
-/* ── CALENDAR GRID ───────────────────────────── */
+
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -307,7 +307,7 @@ html, body {
 .chip-bigi { background: var(--bigi-light); color: var(--bigi-dark); }
 .chip-more { color: var(--text3); background: transparent; font-style: italic; }
 
-/* ── LEGEND ──────────────────────────────────── */
+
 .legend {
   display: flex;
   gap: 16px;
@@ -334,7 +334,7 @@ html, body {
 .bigi-dot { background: var(--bigi); }
 .heart-legend { color: var(--heart); font-size: 12px; }
 
-/* ── MODAL ───────────────────────────────────── */
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -507,7 +507,7 @@ html, body {
 .send-sude { background: var(--sude); color: white; }
 .send-bigi { background: var(--bigi); color: white; }
 
-/* ── EVENT BUTTONS ───────────────────────────── */
+
 .event-btns {
   display: flex;
   gap: 8px;
@@ -543,7 +543,7 @@ html, body {
   color: white;
 }
 
-/* ── DAY EVENT COLORS ────────────────────────── */
+
 .cal-day.ev-sinav-day {
   background: #fdecea;
   border-color: #e53935;
@@ -574,7 +574,7 @@ html, body {
   max-height: 30px;
 }
 
-/* ── COUNTER BAR ─────────────────────────────── */
+
 .counter-bar {
   position: fixed;
   bottom: calc(12px + var(--safe-bottom));
@@ -603,7 +603,7 @@ html, body {
   white-space: nowrap;
 }
 
-/* ── TOAST ───────────────────────────────────── */
+
 .toast {
   position: fixed;
   bottom: calc(24px + var(--safe-bottom));
@@ -626,7 +626,127 @@ html, body {
   transform: translateX(-50%) translateY(0);
 }
 
-/* ── LOADING ─────────────────────────────────── */
+
+.photo-upload-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.photo-upload-btn:active { transform: scale(0.9); }
+
+.modal-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.photo-thumb-wrap {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.photo-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  display: block;
+}
+
+.photo-del {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.55);
+  color: white;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.photo-who {
+  position: absolute;
+  bottom: 3px;
+  left: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-who-sude { background: var(--sude); color: white; }
+.photo-who-bigi { background: var(--bigi); color: white; }
+
+
+.photo-indicator {
+  font-size: 9px;
+  color: var(--text2);
+  margin-top: 1px;
+  line-height: 1;
+}
+
+
+.photo-viewer {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.92);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-viewer-img {
+  max-width: 95vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.photo-viewer-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
 .loading-overlay {
   position: fixed;
   inset: 0;
