@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Bizim Takvim" />
+  <link rel="apple-touch-icon" href="icon.png" />
+  <title>Bizim Takvim 💕</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="user-screen" class="screen">
+    <div class="user-screen-inner">
+      <div class="logo-area">
+        <div class="heart-big">♥</div>
+        <h1 class="app-title">Bizim Takvim</h1>
+        <p class="app-sub">Kim olduğunu seç</p>
+      </div>
+      <div class="user-cards">
+        <button class="user-card sude-card" onclick="selectUser('sude')">
+          <div class="user-avatar sude-avatar">S</div>
+          <div class="user-name">Sude</div>
+          <div class="user-desc">Dünyanın en güzel kadını</div>
+        </button>
+        <button class="user-card bigi-card" onclick="selectUser('bigi')">
+          <div class="user-avatar bigi-avatar">B</div>
+          <div class="user-name">Bigi</div>
+          <div class="user-desc">Dünyanın en güzel kadınının manitası</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="calendar-screen" class="screen hidden">
+    <div class="cal-container">
+      <div class="cal-header">
+        <div class="header-left">
+          <div class="active-user-badge" id="active-badge"></div>
+        </div>
+        <div class="header-center">
+          <div class="nav-row">
+            <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+            <h2 class="month-title" id="month-title"></h2>
+            <button class="nav-btn" onclick="changeMonth(1)">›</button>
+          </div>
+        </div>
+        <div class="header-right">
+          <button class="switch-btn" onclick="switchUser()">⇄</button>
+        </div>
+      </div>
+      <div class="day-labels">
+        <span>Pzt</span><span>Sal</span><span>Çar</span>
+        <span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="legend">
+        <div class="legend-item"><span class="ldot sude-dot"></span>Sude</div>
+        <div class="legend-item"><span class="ldot bigi-dot"></span>Bigi</div>
+        <div class="legend-item"><span class="heart-legend">♥</span>Her ayın 5'i</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay hidden" onclick="closeModalOnBg(event)">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h3 class="modal-date" id="modal-date"></h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-notes" id="modal-notes"></div>
+      <div class="modal-input-area">
+        <textarea id="note-input" class="note-textarea" placeholder="Bir şeyler yaz..."></textarea>
+        <button class="send-btn" id="send-btn" onclick="saveNote()">Gönder ↗</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
