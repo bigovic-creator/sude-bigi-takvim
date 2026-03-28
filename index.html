@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Bizim Takvim" />
   <link rel="apple-touch-icon" href="icon.png" />
-  <title> 2 Beden 2 Ruh 1 Hayat💕</title>
+  <title> 2 Beden 2 Ruh 1 Hayat 💕</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
@@ -61,7 +61,7 @@
       <div class="legend">
         <div class="legend-item"><span class="ldot sude-dot"></span>Sude</div>
         <div class="legend-item"><span class="ldot bigi-dot"></span>Bigi</div>
-        <div class="legend-item"><span class="heart-legend">♥</span></div>
+        <div class="legend-item"><span class="heart-legend">♥</span>Her ayın 5'i</div>
         <div class="legend-item"><span class="ldot" style="background:#e53935"></span>Sınav</div>
         <div class="legend-item"><span class="ldot" style="background:#222"></span>Ayrılık</div>
         <div class="legend-item"><span class="ldot" style="background:linear-gradient(90deg,#641349,#00a693)"></span>Kavuştay</div>
@@ -80,12 +80,21 @@
         <button class="ev-btn ev-ayrilik" onclick="setDayEvent('ayrilik')">AYRILIK</button>
         <button class="ev-btn ev-kavustay" onclick="setDayEvent('kavustay')">KAVUŞTAY</button>
       </div>
+      <div class="modal-photos" id="modal-photos"></div>
       <div class="modal-notes" id="modal-notes"></div>
       <div class="modal-input-area">
+        <button class="photo-upload-btn" onclick="triggerPhotoUpload()" title="Fotoğraf ekle">📷</button>
         <textarea id="note-input" class="note-textarea" placeholder="Bir şeyler yaz..."></textarea>
         <button class="send-btn" id="send-btn" onclick="saveNote()">Gönder ↗</button>
       </div>
+      <input type="file" id="photo-input" accept="image/*" multiple style="display:none" />
     </div>
+  </div>
+
+  <!-- Fotoğraf Tam Ekran -->
+  <div id="photo-viewer" class="photo-viewer hidden" onclick="closePhotoViewer()">
+    <img id="photo-viewer-img" class="photo-viewer-img" />
+    <button class="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
   </div>
 
   <!-- Sayaç -->
