@@ -91,7 +91,7 @@
     </div>
   </div>
 
-  <!-- Fotoğraf Tam Ekran -->
+  
   <div id="photo-viewer" class="photo-viewer hidden" onclick="closePhotoViewer()">
     <img id="photo-viewer-img" class="photo-viewer-img" />
     <button class="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
@@ -105,13 +105,15 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="app.js"></script>
-<div id="kavustay-alert" class="kavustay-alert hidden">
-  <div class="kavustay-box">
-    <div class="kavustay-emojis-big">🐥🐤🐦🐦🦦</div>
-    <div class="kavustay-msg">Sonunda kavuştunuz çifte kumrular 🎉🎉🎉🎈🎊🥳🍾</div>
-    <button class="kavustay-btn" onclick="document.getElementById('kavustay-alert').classList.add('hidden')">Yaşasın! 🎉</button>
+  <!-- Kavuştay Alert -->
+  <div id="kavustay-alert" class="kavustay-alert hidden">
+    <div class="kavustay-box">
+      <div class="kavustay-emojis-big">🎉🎈🎊🥳🍾</div>
+      <div class="kavustay-msg">Sonunda kavuştuk canım sevgilim 🎉🎉🎉</div>
+      <button class="kavustay-btn" onclick="closeKavustayAlert()">Yaşasın! 🎉</button>
+    </div>
   </div>
-</div>
+
+  <script type="module" src="app.js"></script>
 </body>
 </html>
